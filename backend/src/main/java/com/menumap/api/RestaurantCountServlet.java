@@ -19,7 +19,7 @@ import java.sql.SQLException;
 public class RestaurantCountServlet extends HttpServlet {
 
     // basic count_sql request
-    private static final String COUNT_SQL = "SELECT COUNT(*) FROM restaurants WHERE is_active = 1";
+    private static final String COUNT_SQL = "SELECT COUNT(*) FROM restaurant WHERE is_active = 1";
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
