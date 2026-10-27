@@ -40,9 +40,6 @@ export default function Footer() {
           />
         </div>
       </div>
-      <div className="border-t border-[#E5DFCF] px-6 py-4 text-center text-[12.5px] text-muted-2">
-        © 2026 MenuMap. All rights reserved.
-      </div>
     </footer>
   );
 }
