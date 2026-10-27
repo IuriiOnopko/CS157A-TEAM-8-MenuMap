@@ -2,6 +2,7 @@ package com.menumap.db;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
@@ -31,6 +32,22 @@ public final class Database {
 
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(URL, USER, PASS);
+    }
+
+    // fills in the ? placeholders in order (saves a lot of space across code)
+    public static PreparedStatement prepare(Connection conn, String sql, Object... params) throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(sql);
+        for (int i = 0; i < params.length; i++)
+            ps.setObject(i + 1, params[i]); // +1, since JDBC params start at 1
+        
+        return ps;
+    }
+
+    // runs an INSERT/UPDATE/DELETE and closes the statement right away
+    public static void update(Connection conn, String sql, Object... params) throws SQLException {
+        try (PreparedStatement ps = prepare(conn, sql, params)) {
+            ps.executeUpdate();
+        }
     }
 
     private static String env(String key, String fallback) {
