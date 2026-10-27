@@ -14,7 +14,7 @@ public final class Database {
 
     private static final String URL = env("MENUMAP_DB_URL", "jdbc:mysql://localhost:3306/MenuMap");
     private static final String USER = env("MENUMAP_DB_USER", "root");
-    private static final String PASS = env("MENUMAP_DB_PASS", "Eldartiawinnie21*");
+    private static final String PASS = env("MENUMAP_DB_PASS", "root");
 
     // JDBC auto-discovery doesn't see drivers in WEB-INF/lib,
     // so without this DriverManager throws "No suitable driver found"
