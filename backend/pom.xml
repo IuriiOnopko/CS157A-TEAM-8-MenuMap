@@ -35,6 +35,12 @@
             <artifactId>jbcrypt</artifactId>
             <version>0.4</version>
         </dependency>
+        <!-- Gson: reads and writes the JSON bodies of the /api endpoints -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
     </dependencies>
 
     <build>

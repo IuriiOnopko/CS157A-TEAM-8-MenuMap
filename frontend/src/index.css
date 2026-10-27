@@ -32,3 +32,100 @@ code {
 .live-dot {
   animation: pulse-live 1.8s ease-in-out infinite;
 }
+
+/* ---- Restaurant map (RestaurantMap.tsx) ---- */
+
+.leaflet-container {
+  font-family: inherit;
+  background: #f2efe9;
+}
+
+/* Map pin: the SVG takes its fill from `color` */
+.mm-pin {
+  position: relative;
+  width: 36px;
+  height: 46px;
+  color: #2f6f4e;
+  transform-origin: 50% 100%;
+  transition: transform 150ms ease, color 150ms ease;
+  filter: drop-shadow(0 3px 4px rgba(27, 33, 26, 0.35));
+  cursor: pointer;
+}
+
+.mm-pin svg {
+  display: block;
+}
+
+.mm-pin--hovered,
+.mm-pin--selected {
+  color: #b45309;
+  transform: scale(1.3);
+}
+
+/* Pulsing ring on the ground under a highlighted pin, so it's easy to spot */
+.mm-pin-ring {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 26px;
+  height: 10px;
+  margin-left: -13px;
+  border-radius: 50%;
+  background: rgba(180, 83, 9, 0.35);
+}
+
+.mm-pin--hovered .mm-pin-ring,
+.mm-pin--selected .mm-pin-ring {
+  display: block;
+  animation: mm-pin-pulse 1.2s ease-out infinite;
+}
+
+@keyframes mm-pin-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.leaflet-tooltip.mm-tooltip {
+  padding: 4px 9px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1b211a;
+  box-shadow: 0 4px 14px rgba(27, 33, 26, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-pin {
+    transition: none;
+  }
+  .mm-pin-ring {
+    animation: none !important;
+  }
+}
+
+/* Horizontal filter row scrolls without showing a scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* On phones the panel is a bottom sheet; keep the zoom buttons and map credits above it */
+@media (max-width: 767px) {
+  .mm-panel-open .leaflet-bottom {
+    bottom: calc(55vh + 0.5rem);
+  }
+  .mm-panel-closed .leaflet-bottom {
+    bottom: 4.75rem;
+  }
+}
