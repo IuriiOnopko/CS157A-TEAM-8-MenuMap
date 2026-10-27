@@ -13,7 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * GET /api/restaurants/count 
+ * GET /api/restaurants/count
  */
 @WebServlet("/api/restaurants/count")
 public class RestaurantCountServlet extends HttpServlet {
@@ -26,11 +26,12 @@ public class RestaurantCountServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        // Used try-with-resources structure, since it closes connection automatically after use
+        // Used try-with-resources structure, since it closes connection automatically
+        // after use
         try (
-            Connection conn = Database.getConnection();
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(COUNT_SQL)) {
+                Connection conn = Database.getConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(COUNT_SQL)) {
 
             rs.next();
             // writing JSON styled response
