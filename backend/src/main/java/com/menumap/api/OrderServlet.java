@@ -161,7 +161,7 @@ public class OrderServlet extends HttpServlet {
 
     private static boolean isActiveCustomer(Connection conn, long userId) throws SQLException {
         try (PreparedStatement ps = Database.prepare(conn, CUSTOMER_SQL, userId);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
             return rs.next();
         }
     }
@@ -169,7 +169,7 @@ public class OrderServlet extends HttpServlet {
     // returns restaurant's name, if exists and open
     private static String openRestaurantName(Connection conn, long restaurantId) throws SQLException, ApiError {
         try (PreparedStatement ps = Database.prepare(conn, RESTAURANT_SQL, restaurantId);
-             ResultSet rs = ps.executeQuery()) {
+                ResultSet rs = ps.executeQuery()) {
 
             if (!rs.next())
                 throw new ApiError(404, "This restaurant isn't on MenuMap.");

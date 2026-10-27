@@ -12,7 +12,6 @@ import RestaurantList, { ListedRestaurant } from "../components/map/RestaurantLi
 import RestaurantMap from "../components/map/RestaurantMap";
 import SearchControls, { Filters, NO_FILTERS } from "../components/map/SearchControls";
 import { LatLng, milesBetween, plural } from "../lib/format";
-import { useSession } from "../session/SessionContext";
 
 /**
  * /restaurants and /restaurants/:restaurantId — the full-screen map with a
@@ -26,7 +25,6 @@ export default function MapPage() {
   const { restaurantId } = useParams();
   const openId = restaurantId && /^\d+$/.test(restaurantId) ? Number(restaurantId) : null;
   const navigate = useNavigate();
-  const { user } = useSession();
 
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
@@ -180,7 +178,7 @@ export default function MapPage() {
             <span className="font-display text-lg font-semibold tracking-tight">MenuMap</span>
           </Link>
           <Link to="/orders" className="text-[13.5px] font-semibold text-sage hover:text-sage-dark">
-            {user ? `${user.name.split(" ")[0]}'s orders` : "My orders"}
+            Your orders
           </Link>
         </div>
 

@@ -2,8 +2,8 @@ package com.menumap.api;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -17,22 +17,19 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet("/api/business/login")
 public class BusinessLoginServlet extends HttpServlet {
 
+    private static final String GET_USER = "SELECT password_hash, user_id, account_type FROM user_account WHERE ? = email";
+    
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
-
         String email = req.getParameter("email");
         String pass = req.getParameter("pass");
 
-        try {
+        try (Connection connection = Database.getConnection(); PreparedStatement ps = Database.prepare(connection, GET_USER, email);
+                ResultSet rs = ps.executeQuery()) {
+            
             boolean businessExists = false;
-
-            String querySql = "SELECT password_hash, user_id, account_type FROM user_account WHERE '" + email
-                    + "' = email";
-            Connection connection = Database.getConnection();
-            Statement st = connection.createStatement();
-            ResultSet rs = st.executeQuery(querySql);
 
             if (rs.next()) {
                 String passStored = rs.getString("password_hash");
@@ -46,10 +43,6 @@ public class BusinessLoginServlet extends HttpServlet {
                     req.getSession().setAttribute("userId", id);
                 }
             }
-
-            rs.close();
-            st.close();
-            connection.close();
 
             if (businessExists) {
                 resp.setStatus(201);

@@ -13,14 +13,6 @@ import OrderStatusPage from "./pages/OrderStatusPage";
 import TableOrderPage from "./pages/TableOrderPage";
 import { SessionProvider } from "./session/SessionContext";
 
-// Minimal path-based routing (no router library yet).
-// The app is served under PUBLIC_URL (/menumap), so strip that prefix first.
-function currentPath(): string {
-  const base = process.env.PUBLIC_URL || "";
-  let path = window.location.pathname;
-  if (base && path.startsWith(base)) path = path.slice(base.length);
-  return path.replace(/\/+$/, "") || "/";
-}
 
 // Paths are relative to /menumap (PUBLIC_URL). On Tomcat, SpaFallbackFilter serves
 // index.html for these paths so they also work when opened directly or refreshed.

@@ -1,5 +1,6 @@
 import React from "react";
-import { clearCurrentUser, getCurrentUser } from "../utils/currentUser";
+import { getCurrentUser } from "../utils/currentUser";
+import { useSession } from "../session/SessionContext";
 
 // Simple landing page after a customer logs in.
 // The cards are placeholders for features coming in later sprints.
@@ -37,9 +38,11 @@ export default function Account() {
   // Only customers belong here; a logged-in business owner sees the logged-out view.
   const stored = getCurrentUser();
   const user = stored && stored.role !== "BUSINESS_OWNER" ? stored : null;
+  const { signOut } = useSession();
 
-  function logOut() {
-    clearCurrentUser();
+  // signOut also ends the server session, so the map can't keep ordering as this user
+  async function logOut() {
+    await signOut().catch(() => {}); // still go to the login page if the server can't be reached
     window.location.href = `${BASE}/login`;
   }
 

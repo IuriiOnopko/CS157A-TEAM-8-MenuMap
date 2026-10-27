@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { endSession, getSession, SessionUser } from "../api/session";
+import { clearCurrentUser } from "../utils/currentUser";
 
 type SessionState = {
   /** null for a guest */
@@ -28,7 +29,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Ends the server session and also forgets the login pages' stored copy of the user
+  // (utils/currentUser.ts), so every page agrees the user is signed out.
   const signOut = useCallback(async () => {
+    clearCurrentUser();
     await endSession();
     setUser(null);
   }, []);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { clearCurrentUser, getCurrentUser } from "../utils/currentUser";
+import { getCurrentUser } from "../utils/currentUser";
+import { useSession } from "../session/SessionContext";
 
 // Basic owner dashboard shown after a business login.
 // Sections match the Business-Owner View in the project report.
@@ -23,9 +24,11 @@ export default function BusinessDashboard() {
   const stored = getCurrentUser();
   const user = stored && stored.role === "BUSINESS_OWNER" ? stored : null;
   const [tab, setTab] = useState<Tab>("overview");
+  const { signOut } = useSession();
 
-  function logOut() {
-    clearCurrentUser();
+  // signOut also ends the server session (the business login signs in there too)
+  async function logOut() {
+    await signOut().catch(() => {}); // still go to the login page if the server can't be reached
     window.location.href = `${BASE}/business/login`;
   }
 

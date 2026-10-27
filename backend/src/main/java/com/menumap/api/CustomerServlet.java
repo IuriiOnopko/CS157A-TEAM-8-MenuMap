@@ -2,8 +2,10 @@ package com.menumap.api;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -17,6 +19,20 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet("/api/customers/register")
 public class CustomerServlet extends HttpServlet {
 
+    private static final String CREATE_USER = "INSERT INTO user_account (user_id, email, password_hash, phone_number, name, "
+                    + "account_type, account_status, created_at, updated_at) "
+                    + "VALUES (?, ?, ?, ?, ?, 'CUSTOMER', 'ACTIVE', NOW(), NOW())";
+
+    private static final String CREATE_CUSTOMER = "INSERT INTO customer (user_id) VALUES (?)";
+
+    // user_account has no unique index on email, so check before creating the account
+    private static final String EMAIL_TAKEN = "SELECT 1 FROM user_account WHERE email = ?";
+
+    // temp, since user_id isn't AUTO_INCREMENT
+    private static final String NEXT_USER_ID = "SELECT MAX(user_id) FROM user_account";
+
+    private static final int INSERT_ATTEMPTS = 3;
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json");
@@ -27,42 +43,24 @@ public class CustomerServlet extends HttpServlet {
         String phoneNum = req.getParameter("phoneNum");
         String name = req.getParameter("name");
 
+        // ensures no null or empty value passes through
+        if (email == null || email.isBlank() || name == null || name.isBlank() || pass == null || pass.isEmpty()) {
+            resp.setStatus(400);
+            resp.getWriter().write("{\"error\": \"Name, email and password are required.\"}");
+            return;
+        }
+
         String passwordHash = BCrypt.hashpw(pass, BCrypt.gensalt());
 
-        try {
+        try (Connection connection = Database.getConnection()) {
 
-            String querySql = "SELECT MAX(user_id) AS id FROM user_account";
-            Connection connection = Database.getConnection();
-            Statement st = connection.createStatement();
-            ResultSet rs = st.executeQuery(querySql);
+            if (emailTaken(connection, email)) {
+                resp.setStatus(409);
+                resp.getWriter().write("{\"error\": \"An account with this email already exists.\"}");
+                return;
+            }
 
-            rs.next();
-            int idVal = rs.getInt("id");
-            idVal = idVal + 1;
-
-            rs.close();
-            st.close();
-            connection.close();
-
-            java.util.Date now = new java.util.Date();
-            java.sql.Date sqlDate = new java.sql.Date(now.getTime());
-
-            String insertSql = "INSERT INTO user_account (user_id, email, password_hash, phone_number, name, account_type, account_status, created_at, updated_at) "
-                    + "VALUES (" + idVal + " , '" + email + "', '" + passwordHash + "', '" + phoneNum + "', '" + name
-                    + "', 'CUSTOMER', 'ACTIVE', '"
-                    + sqlDate
-                    + "', '" + sqlDate + "')";
-
-            String insertSqlCustomer = "INSERT INTO customer (user_id) "
-                    + "VALUES (" + idVal + ")";
-
-            Connection conn = Database.getConnection();
-            Statement stmt = conn.createStatement();
-            stmt.execute(insertSql);
-            stmt.execute(insertSqlCustomer);
-
-            stmt.close();
-            conn.close();
+            createCustomer(connection, email, passwordHash, phoneNum, name);
 
             resp.setStatus(201);
             resp.getWriter().write("{\"ok\": true}");
@@ -74,4 +72,37 @@ public class CustomerServlet extends HttpServlet {
         }
 
     }
+
+    private void createCustomer(Connection conn, String email, String passwordHash, String phoneNum, String name)
+            throws SQLException {
+        conn.setAutoCommit(false); // nothing is saved until commit(), rollback() undoes both inserts
+
+        for (int attempt = 1; ; attempt++) {
+            long userId = nextUserId(conn);
+            try {
+                Database.update(conn, CREATE_USER, userId, email, passwordHash, phoneNum, name);
+                Database.update(conn, CREATE_CUSTOMER, userId);
+                conn.commit();
+                return;
+            } catch (SQLIntegrityConstraintViolationException idTaken) {
+                conn.rollback();
+                if (attempt == INSERT_ATTEMPTS)
+                    throw idTaken;
+            }
+        }
+    }
+
+    private boolean emailTaken(Connection conn, String email) throws SQLException {
+        try (PreparedStatement ps = Database.prepare(conn, EMAIL_TAKEN, email); ResultSet rs = ps.executeQuery()) {
+            return rs.next();
+        }
+    }
+
+    private long nextUserId(Connection conn) throws SQLException {
+        try (PreparedStatement ps = Database.prepare(conn, NEXT_USER_ID); ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            return rs.getLong(1) + 1; // MAX of an empty table is NULL, which getLong reads as 0
+        }
+    }
+
 }

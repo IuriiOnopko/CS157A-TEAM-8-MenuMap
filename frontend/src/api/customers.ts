@@ -4,7 +4,8 @@
  * Sent as form fields so the servlet can read them with req.getParameter():
  *   name, email, phoneNum, pass
  *
- * Server replies 201 {"ok": true} on success, or 500 {"error": "..."} on failure.
+ * Server replies 201 {"ok": true} on success, 400 {"error": "..."} if a required field is missing,
+ * 409 {"error": "..."} if the email already has an account, or 500 {"error": "..."} on failure.
  */
 export type RegisterInput = {
   name: string;
