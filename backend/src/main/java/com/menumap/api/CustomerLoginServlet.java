@@ -14,6 +14,8 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+
+//TODO: implement password hashing consistently
 @WebServlet("/api/customers/login")
 public class CustomerLoginServlet extends HttpServlet {
 
@@ -36,7 +38,8 @@ public class CustomerLoginServlet extends HttpServlet {
                 String accountType = rs.getString("account_type");
                 String status = rs.getString("account_status");
 
-                if (BCrypt.checkpw(pass, passStored) && accountType.equals("CUSTOMER") && status.equals("ACTIVE")) {
+                // if (BCrypt.checkpw(pass, passStored) && accountType.equals("CUSTOMER") && status.equals("ACTIVE")) {
+                if (passStored.equals(pass) && accountType.equals("CUSTOMER") && status.equals("ACTIVE")) {
                     userExists = true;
                     int id = rs.getInt("user_id");
                     req.getSession().setAttribute("userId", id);

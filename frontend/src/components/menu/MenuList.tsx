@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { getMyAllergens } from "../../api/account";
 import type { MenuCategory, MenuItem } from "../../api/restaurants";
 import type { Cart } from "../../lib/cart";
 import { formatMoney } from "../../lib/format";
+import { useSession } from "../../session/SessionContext";
 
 type Props = {
   menu: MenuCategory[];
@@ -13,9 +15,24 @@ type Props = {
 /**
  * A restaurant's menu with everything the proposal lists per item: name,
  * description, price, availability, nutrition and dietary classifications
- * (plus allergens, worked out from the ingredients).
+ * (plus allergens, worked out from the ingredients). Dishes containing an
+ * allergen the signed-in customer saved in account settings are flagged.
  */
 export default function MenuList({ menu, cart, canOrder }: Props) {
+  const { user } = useSession();
+  const [myAllergens, setMyAllergens] = useState<string[]>([]);
+
+  // only customers have saved allergens; guests and owners just see the plain menu
+  useEffect(() => {
+    if (user?.accountType !== "CUSTOMER") {
+      setMyAllergens([]);
+      return;
+    }
+    getMyAllergens()
+      .then((saved) => setMyAllergens(saved.map((a) => a.name)))
+      .catch(() => setMyAllergens([])); // no warnings rather than a broken menu
+  }, [user]);
+
   const categories = menu.filter((c) => c.items.length > 0);
   if (categories.length === 0) {
     return <p className="m-0 text-[14px] text-muted">This restaurant hasn't posted its menu yet.</p>;
@@ -36,6 +53,7 @@ export default function MenuList({ menu, cart, canOrder }: Props) {
                 item={item}
                 quantity={cart.quantityOf(item)}
                 canOrder={canOrder}
+                myAllergens={myAllergens}
                 onAdd={() => cart.add(item)}
                 onRemove={() => cart.remove(item)}
               />
@@ -51,16 +69,19 @@ function MenuItemCard({
   item,
   quantity,
   canOrder,
+  myAllergens,
   onAdd,
   onRemove,
 }: {
   item: MenuItem;
   quantity: number;
   canOrder: boolean;
+  myAllergens: string[];
   onAdd: () => void;
   onRemove: () => void;
 }) {
   const n = item.nutrition;
+  const flagged = item.allergens.filter((a) => myAllergens.includes(a));
   return (
     <li
       className={`bg-card border border-border rounded-xl px-4 py-3.5 flex flex-col gap-2 ${
@@ -88,6 +109,10 @@ function MenuItemCard({
           {Math.round(n.proteinG)}g protein · {Math.round(n.carbohydratesG)}g carbs · {Math.round(n.fatG)}g fat ·{" "}
           {Math.round(n.sodiumMg)}mg sodium · per {n.servingSize}
         </p>
+      )}
+
+      {flagged.length > 0 && (
+        <p className="m-0 text-[12.5px] font-semibold text-[#B42318]">Contains your allergens: {flagged.join(", ")}</p>
       )}
 
       {(item.dietary.length > 0 || item.allergens.length > 0) && (

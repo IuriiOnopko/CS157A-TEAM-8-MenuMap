@@ -15,7 +15,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   try {
     res = await fetch(`${process.env.PUBLIC_URL}/api${path}`, {
       ...init,
-      headers: init.body ? { "Content-Type": "application/json" } : undefined,
+      // JSON strings need the header; form bodies (URLSearchParams) set their own
+      headers: typeof init.body === "string" ? { "Content-Type": "application/json" } : undefined,
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;

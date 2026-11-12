@@ -64,7 +64,13 @@ export default function Header() {
         <div className="flex items-center gap-3 ml-auto md:ml-0">
           {user ? (
             <>
-              <span className="text-sm font-medium text-muted">{user.name}</span>
+              {user.accountType === "CUSTOMER" ? (
+                <Link to="/account" className="text-sm font-medium text-muted hover:text-sage transition-colors">
+                  {user.name}
+                </Link>
+              ) : (
+                <span className="text-sm font-medium text-muted">{user.name}</span>
+              )}
               <button
                 type="button"
                 onClick={signOut}

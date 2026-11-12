@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpSession;
  * 
  * Session key is temporarily userId
  */
+
+// TODO: consistently implement hashing passwords and sessions 
 public final class CurrentUser {
 
     public static final String SESSION_KEY = "userId";

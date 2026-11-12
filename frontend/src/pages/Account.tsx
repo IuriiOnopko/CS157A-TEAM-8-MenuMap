@@ -1,8 +1,12 @@
 import React from "react";
-import { getCurrentUser } from "../utils/currentUser";
 import { useSession } from "../session/SessionContext";
+import PasswordSection from "../components/account/PasswordSection";
+import PreferencesSection from "../components/account/PreferencesSection";
+import ProfileSection from "../components/account/ProfileSection";
+import WipeDataSection from "../components/account/WipeDataSection";
+import { clearPreferences } from "../lib/preferences";
 
-// Simple landing page after a customer logs in.
+// Landing page after a customer logs in, with their account settings below.
 // The cards are placeholders for features coming in later sprints.
 
 const BASE = process.env.PUBLIC_URL;
@@ -36,14 +40,21 @@ const actions = [
 
 export default function Account() {
   // Only customers belong here; a logged-in business owner sees the logged-out view.
-  const stored = getCurrentUser();
-  const user = stored && stored.role !== "BUSINESS_OWNER" ? stored : null;
-  const { signOut } = useSession();
+  // The server session decides, since every setting below needs it.
+  const { user: sessionUser, loading, refresh, signOut } = useSession();
+  const user = sessionUser && sessionUser.accountType === "CUSTOMER" ? sessionUser : null;
 
   // signOut also ends the server session, so the map can't keep ordering as this user
   async function logOut() {
     await signOut().catch(() => {}); // still go to the login page if the server can't be reached
     window.location.href = `${BASE}/login`;
+  }
+
+  // the server already closed the account and signed this browser out; forget it in this browser too
+  async function afterWipe() {
+    if (user) clearPreferences(user.id);
+    await signOut().catch(() => {});
+    window.location.href = `${BASE}/`;
   }
 
   return (
@@ -76,11 +87,13 @@ export default function Account() {
       </header>
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-6 md:px-10 py-12">
-        {user ? (
+        {loading ? (
+          <p className="text-[15px] text-muted-2">Loading…</p>
+        ) : user ? (
           <>
             <div className="flex items-center gap-4">
               <span className="w-14 h-14 rounded-full bg-sage text-[#FBF6EC] font-display text-2xl font-semibold flex items-center justify-center shrink-0">
-                {user.email.charAt(0).toUpperCase()}
+                {user.name.charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0">
                 <h1 className="font-display text-3xl md:text-[34px] font-semibold tracking-tight">
@@ -124,6 +137,16 @@ export default function Account() {
                   </div>
                 );
               })}
+            </div>
+
+            <h2 className="mt-14 text-[12.5px] font-bold tracking-wide uppercase text-muted-2">Account settings</h2>
+            <div className="mt-4 flex flex-col gap-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <ProfileSection onSaved={refresh} />
+                <PasswordSection />
+              </div>
+              <PreferencesSection userId={user.id} />
+              <WipeDataSection onWiped={afterWipe} />
             </div>
           </>
         ) : (
