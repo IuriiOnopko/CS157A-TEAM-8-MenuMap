@@ -69,5 +69,22 @@ export function getBusinessOrders(): Promise<Order[]> {
   return apiFetch<Order[]>("/orders/business");
 }
 
+/** GET /api/update/orders (UpdateOrderServlet) — orders for every restaurant the signed-in owner owns, newest first. */
+export function getRestaurantOrders(): Promise<Order[]> {
+  return apiFetch<Order[]>("/update/orders");
+}
+
+/**
+ * POST /api/update/orders/{id} (UpdateOrderServlet) — sets an order's status.
+ * The reason is only stored for CANCELED. The server answers ok even when no row
+ * changed (e.g. the order belongs to another restaurant), so re-load to confirm.
+ */
+export function updateOrderStatus(id: number, status: OrderStatus, reason?: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/update/orders/${id}`, {
+    method: "POST",
+    body: JSON.stringify({ status, reason: reason ?? null }),
+  });
+}
+
 /** Orders in these states won't change again, so their pages stop checking for updates. */
 export const FINAL_STATUSES: OrderStatus[] = ["COMPLETED", "CANCELED"];

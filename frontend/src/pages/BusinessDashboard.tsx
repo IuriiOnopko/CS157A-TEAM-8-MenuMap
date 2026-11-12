@@ -1,12 +1,13 @@
-// import React, { useState } from "react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { getCurrentUser } from "../utils/currentUser";
 import { useSession } from "../session/SessionContext";
-import { getBusinessOrders, Order } from "../api/orders";
+import { getRestaurantOrders, updateOrderStatus, Order, OrderStatus, FINAL_STATUSES } from "../api/orders";
+import { errorMessage } from "../api/http";
 
 // Basic owner dashboard shown after a business login.
 // Sections match the Business-Owner View in the project report.
-// No restaurant data is loaded yet, so each section shows an empty state.
+// Orders are loaded and updated through UpdateOrderServlet (/api/update/orders);
+// the menu, info and restrictions sections still show empty states.
 
 const BASE = process.env.PUBLIC_URL;
 
@@ -20,7 +21,28 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: "restrictions", label: "Restrictions", icon: <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM5.6 5.6l12.8 12.8" /> },
 ];
 
-const ORDER_STATUSES = ["Submitted", "Preparing", "Ready", "Completed", "Canceled"];
+const ORDER_STATUSES: { key: OrderStatus; label: string }[] = [
+  { key: "SUBMITTED", label: "Submitted" },
+  { key: "PREPARING", label: "Preparing" },
+  { key: "READY", label: "Ready" },
+  { key: "COMPLETED", label: "Completed" },
+  { key: "CANCELED", label: "Canceled" },
+];
+
+const STATUS_LABEL = Object.fromEntries(ORDER_STATUSES.map((s) => [s.key, s.label])) as Record<OrderStatus, string>;
+
+// Orders tab order: completed orders sink to the bottom; within each group, newest first
+function completedLastNewestFirst(a: Order, b: Order) {
+  const completed = Number(a.status === "COMPLETED") - Number(b.status === "COMPLETED");
+  return completed || Date.parse(b.submittedAt) - Date.parse(a.submittedAt) || b.id - a.id;
+}
+
+// the one forward step offered for each open order: Submitted → Preparing → Ready → Completed
+const NEXT_STEP: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
+  SUBMITTED: { status: "PREPARING", label: "Start Preparing" },
+  PREPARING: { status: "READY", label: "Mark Ready" },
+  READY: { status: "COMPLETED", label: "Mark Completed" },
+};
 
 export default function BusinessDashboard() {
   const stored = getCurrentUser();
@@ -31,26 +53,61 @@ export default function BusinessDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState("");
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL");
 
-  useEffect(() => {
-  if (!user) {
-    setOrdersLoading(false);
-    return;
-  }
+  // per-order update state: which order is saving, which one has the cancel form open, and errors
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [cancelingId, setCancelingId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [updateErrors, setUpdateErrors] = useState<Record<number, string>>({});
 
-  getBusinessOrders()
-    .then((data) => {
+  // getCurrentUser() returns a new object every render, so depend on this flag instead of `user`
+  const isOwner = user !== null;
+
+  // loads the orders and returns them, so an update can check what the server actually saved
+  const loadOrders = useCallback(async (): Promise<Order[] | null> => {
+    try {
+      const data = await getRestaurantOrders();
       setOrders(data);
       setOrdersError("");
-    })
-    .catch((err) => {
-      setOrdersError(err instanceof Error ? err.message : "Could not load restaurant orders.");
-    })
-    .finally(() => {
+      return data;
+    } catch (err) {
+      setOrdersError(errorMessage(err));
+      return null;
+    } finally {
       setOrdersLoading(false);
-    });
-}, []);
-  
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOwner) {
+      setOrdersLoading(false);
+      return;
+    }
+    loadOrders();
+  }, [isOwner, loadOrders]);
+
+  async function changeStatus(order: Order, status: OrderStatus, reason?: string) {
+    setSavingId(order.id);
+    setUpdateErrors(({ [order.id]: _, ...rest }) => rest);
+    try {
+      await updateOrderStatus(order.id, status, reason);
+      // UpdateOrderServlet answers ok even if no row changed, so confirm against a fresh load
+      const fresh = await loadOrders();
+      const saved = fresh?.find((o) => o.id === order.id);
+      if (fresh && saved?.status !== status) {
+        setUpdateErrors((e) => ({ ...e, [order.id]: "The order wasn't updated. Try signing in again." }));
+      } else if (status === "CANCELED") {
+        setCancelingId(null);
+        setCancelReason("");
+      }
+    } catch (err) {
+      setUpdateErrors((e) => ({ ...e, [order.id]: errorMessage(err) }));
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   // signOut also ends the server session (the business login signs in there too)
   async function logOut() {
     await signOut().catch(() => {}); // still go to the login page if the server can't be reached
@@ -89,23 +146,33 @@ export default function BusinessDashboard() {
 
   const recentOrders = orders.slice(0, 5);
 
+  const shownOrders = (statusFilter === "ALL" ? [...orders] : orders.filter((order) => order.status === statusFilter)).sort(
+    completedLastNewestFirst
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-cream font-body text-ink">
       {/* Top bar */}
       <header className="bg-ink text-[#FBF6EC]">
         <div className="px-5 md:px-8 py-3.5 flex items-center gap-3">
-          <a href={`${BASE}/`} className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-[9px] bg-[#FBF6EC] flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" stroke="#1B211A" strokeWidth="1.8" strokeLinejoin="round" />
-                <circle cx="12" cy="10" r="2.6" fill="#1B211A" />
-              </svg>
+          {/* items-baseline puts the BUSINESS pill's text on the MenuMap wordmark's baseline, so it stays put
+              if fonts or sizes change; the icon opts back into centering. The pill's -translate-y-0.5 then
+              raises it 2px above that baseline, which is where it looked right by eye. */}
+          <div className="flex items-baseline gap-3">
+            <a href={`${BASE}/`} className="flex items-baseline gap-2.5">
+              <span className="self-center w-8 h-8 rounded-[9px] bg-[#FBF6EC] flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" stroke="#1B211A" strokeWidth="1.8" strokeLinejoin="round" />
+                  <circle cx="12" cy="10" r="2.6" fill="#1B211A" />
+                </svg>
+              </span>
+              {/* leading-8 matches the icon's height, so the wordmark stays centered beside it */}
+              <span className="font-display text-xl leading-8 font-semibold tracking-tight">MenuMap</span>
+            </a>
+            <span className="-translate-y-0.5 text-[11px] font-bold uppercase tracking-wider bg-[#FBF6EC]/15 rounded-full px-2.5 py-1">
+              Business
             </span>
-            <span className="font-display text-xl font-semibold tracking-tight">MenuMap</span>
-          </a>
-          <span className="text-[11px] font-bold uppercase tracking-wider bg-[#FBF6EC]/15 rounded-full px-2.5 py-1">
-            Business
-          </span>
+          </div>
           <div className="ml-auto flex items-center gap-3 min-w-0">
             <span className="hidden sm:inline text-sm text-[#FBF6EC]/70 truncate max-w-[240px]">{user.email}</span>
             <button
@@ -186,7 +253,7 @@ export default function BusinessDashboard() {
             <p className="font-semibold">
               ${order.total.toFixed(2)}
             </p>
-            <p className="text-sm text-muted">{order.status}</p>
+            <p className="text-sm text-muted">{STATUS_LABEL[order.status]}</p>
           </div>
         </div>
       ))}
@@ -200,16 +267,22 @@ export default function BusinessDashboard() {
             <>
               <p className="mt-1 text-[15px] text-muted">Track incoming orders and update their status.</p>
               <div className="mt-6 flex flex-wrap gap-2">
-                {["All", ...ORDER_STATUSES].map((s, i) => (
-                  <span
-                    key={s}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-semibold border ${
-                      i === 0 ? "bg-ink text-[#FBF6EC] border-ink" : "bg-card text-muted border-border-strong"
-                    }`}
-                  >
-                    {s}
-                  </span>
-                ))}
+                {[{ key: "ALL" as const, label: "All" }, ...ORDER_STATUSES].map((s) => {
+                  const on = s.key === statusFilter;
+                  const count = s.key === "ALL" ? orders.length : orders.filter((o) => o.status === s.key).length;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => setStatusFilter(s.key)}
+                      aria-pressed={on}
+                      className={`px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
+                        on ? "bg-ink text-[#FBF6EC] border-ink" : "bg-card text-muted border-border-strong hover:text-ink"
+                      }`}
+                    >
+                      {s.label} <span className={on ? "text-[#FBF6EC]/60" : "text-muted-2"}>{count}</span>
+                    </button>
+                  );
+                })}
               </div>
               <SectionCard title="Orders">
   {ordersLoading ? (
@@ -219,11 +292,16 @@ export default function BusinessDashboard() {
   ) : orders.length === 0 ? (
     <EmptyState
       title="No orders yet"
-      body="When customers order, they'll appear here."
+      body="When customers order, you'll move them from Submitted to Preparing, Ready and Completed here."
+    />
+  ) : shownOrders.length === 0 ? (
+    <EmptyState
+      title={`No ${STATUS_LABEL[statusFilter as OrderStatus].toLowerCase()} orders`}
+      body="Pick another status above to see the rest of your orders."
     />
   ) : (
     <div className="space-y-4">
-      {orders.map((order) => (
+      {shownOrders.map((order) => (
         <div
           key={order.id}
           className="border border-border rounded-xl p-4"
@@ -249,7 +327,7 @@ export default function BusinessDashboard() {
                 ${order.total.toFixed(2)}
               </p>
               <p className="mt-1 text-sm font-semibold">
-                {order.status}
+                {STATUS_LABEL[order.status]}
               </p>
             </div>
           </div>
@@ -263,6 +341,30 @@ export default function BusinessDashboard() {
               ))}
             </div>
           )}
+
+          {order.status === "CANCELED" && order.cancellationReason && (
+            <p className="mt-3 text-sm text-muted">Reason: {order.cancellationReason}</p>
+          )}
+
+          {!FINAL_STATUSES.includes(order.status) && (
+            <OrderActions
+              order={order}
+              saving={savingId === order.id}
+              busy={savingId !== null}
+              canceling={cancelingId === order.id}
+              reason={cancelReason}
+              onReasonChange={setCancelReason}
+              onAdvance={(status) => changeStatus(order, status)}
+              onStartCancel={() => {
+                setCancelingId(order.id);
+                setCancelReason("");
+              }}
+              onConfirmCancel={() => changeStatus(order, "CANCELED", cancelReason.trim())}
+              onBack={() => setCancelingId(null)}
+            />
+          )}
+
+          {updateErrors[order.id] && <p className="mt-2 text-sm text-red-600">{updateErrors[order.id]}</p>}
         </div>
       ))}
     </div>
@@ -336,6 +438,81 @@ function StatTile({ label, value }: { label: string; value: number }) {
       <p className="mt-2 font-display text-[32px] font-semibold leading-none">
         {value}
       </p>
+    </div>
+  );
+}
+
+// Buttons under an open order: its next step, or Cancel (which asks for a reason first).
+function OrderActions({
+  order,
+  saving,
+  busy,
+  canceling,
+  reason,
+  onReasonChange,
+  onAdvance,
+  onStartCancel,
+  onConfirmCancel,
+  onBack,
+}: {
+  order: Order;
+  saving: boolean;
+  busy: boolean;
+  canceling: boolean;
+  reason: string;
+  onReasonChange: (reason: string) => void;
+  onAdvance: (status: OrderStatus) => void;
+  onStartCancel: () => void;
+  onConfirmCancel: () => void;
+  onBack: () => void;
+}) {
+  const next = NEXT_STEP[order.status];
+  const button = "h-9 px-3.5 rounded-[9px] text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed";
+
+  if (canceling) {
+    return (
+      <form
+        className="mt-4 pt-3 border-t border-border"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onConfirmCancel();
+        }}
+      >
+        <label htmlFor={`cancel-reason-${order.id}`} className="block text-[13px] font-semibold mb-1.5">
+          Why is order #{order.id} being canceled?
+        </label>
+        <input
+          id={`cancel-reason-${order.id}`}
+          value={reason}
+          onChange={(e) => onReasonChange(e.target.value)}
+          maxLength={500}
+          required
+          autoFocus
+          placeholder="e.g. Out of salmon"
+          className="w-full h-10 px-3 rounded-[10px] border-[1.5px] border-border bg-cream/60 text-sm focus:outline-none focus:border-ink"
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="submit" disabled={busy || !reason.trim()} className={`${button} bg-red-600 text-white hover:bg-red-700`}>
+            {saving ? "Canceling…" : "Cancel Order"}
+          </button>
+          <button type="button" onClick={onBack} disabled={saving} className={`${button} border border-border-strong hover:bg-cream`}>
+            Keep Order
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-2">
+      {next && (
+        <button onClick={() => onAdvance(next.status)} disabled={busy} className={`${button} bg-ink text-[#FBF6EC] hover:bg-black`}>
+          {saving ? "Saving…" : next.label}
+        </button>
+      )}
+      <button onClick={onStartCancel} disabled={busy} className={`${button} border border-border-strong text-red-600 hover:bg-cream`}>
+        Cancel
+      </button>
     </div>
   );
 }
