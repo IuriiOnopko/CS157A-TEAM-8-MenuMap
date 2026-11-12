@@ -263,6 +263,26 @@ public class OrderServlet extends HttpServlet {
                 return;
             }
 
+            // GET /api/orders/business - orders for the logged-in business owner's restaurant
+            if ("/business".equals(path)) {
+                if (customerId == null)
+                    throw new ApiError(401, "Sign in with a business account.");
+
+                String ownerRestaurantSql = "SELECT restaurant_id FROM owns_restaurant WHERE business_owner_id = ?";
+
+                try (PreparedStatement ps = Database.prepare(conn, ownerRestaurantSql, customerId);
+                     ResultSet rs = ps.executeQuery()) {
+
+                    if (!rs.next())
+                        throw new ApiError(403, "No restaurant is assigned to this business account.");
+
+                    long restaurantId = rs.getLong("restaurant_id");
+
+                    Json.write(resp, 200, orders(conn, "o.restaurant_id = ?", restaurantId));
+                    return;
+                }
+            }
+
             // GET /api/orders/{id}
             long orderId;
             try {
