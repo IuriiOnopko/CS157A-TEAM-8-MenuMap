@@ -64,5 +64,10 @@ export function getMyOrders(): Promise<Order[]> {
   return apiFetch<Order[]>("/orders");
 }
 
+/** GET /api/orders/business — orders for the signed-in business owner's restaurant. */
+export function getBusinessOrders(): Promise<Order[]> {
+  return apiFetch<Order[]>("/orders/business");
+}
+
 /** Orders in these states won't change again, so their pages stop checking for updates. */
 export const FINAL_STATUSES: OrderStatus[] = ["COMPLETED", "CANCELED"];
