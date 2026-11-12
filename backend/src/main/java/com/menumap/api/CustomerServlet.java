@@ -16,6 +16,8 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+
+//TODO: implement password hashing consistently
 @WebServlet("/api/customers/register")
 public class CustomerServlet extends HttpServlet {
 
@@ -50,7 +52,8 @@ public class CustomerServlet extends HttpServlet {
             return;
         }
 
-        String passwordHash = BCrypt.hashpw(pass, BCrypt.gensalt());
+        // String passwordHash = BCrypt.hashpw(pass, BCrypt.gensalt());
+        String passwordHash = pass; 
 
         try (Connection connection = Database.getConnection()) {
 
