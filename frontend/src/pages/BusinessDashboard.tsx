@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+// import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getCurrentUser } from "../utils/currentUser";
 import { useSession } from "../session/SessionContext";
+import { getBusinessOrders, Order } from "../api/orders";
 
 // Basic owner dashboard shown after a business login.
 // Sections match the Business-Owner View in the project report.
@@ -26,6 +28,29 @@ export default function BusinessDashboard() {
   const [tab, setTab] = useState<Tab>("overview");
   const { signOut } = useSession();
 
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState("");
+
+  useEffect(() => {
+  if (!user) {
+    setOrdersLoading(false);
+    return;
+  }
+
+  getBusinessOrders()
+    .then((data) => {
+      setOrders(data);
+      setOrdersError("");
+    })
+    .catch((err) => {
+      setOrdersError(err instanceof Error ? err.message : "Could not load restaurant orders.");
+    })
+    .finally(() => {
+      setOrdersLoading(false);
+    });
+}, []);
+  
   // signOut also ends the server session (the business login signs in there too)
   async function logOut() {
     await signOut().catch(() => {}); // still go to the login page if the server can't be reached
