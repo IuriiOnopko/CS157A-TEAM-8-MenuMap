@@ -1,13 +1,16 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
 import FormField from "../components/auth/FormField";
 import LoginTypeSwitch from "../components/auth/LoginTypeSwitch";
 import { loginCustomer } from "../api/customers";
 import { saveCurrentUser } from "../utils/currentUser";
+import { returnPath } from "../utils/loginRedirect";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -28,7 +31,9 @@ export default function Login() {
     try {
       await loginCustomer({ email: email.trim(), pass: password });
       saveCurrentUser({ email: email.trim(), role: "CUSTOMER" }, remember);
-      window.location.href = `${process.env.PUBLIC_URL}/account`;
+      // Back to the page that sent them here (e.g. a restaurant's menu), else their account
+      const next = returnPath(searchParams.get("next")) ?? "/account";
+      window.location.href = `${process.env.PUBLIC_URL}${next}`;
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong.");
       setSubmitting(false);

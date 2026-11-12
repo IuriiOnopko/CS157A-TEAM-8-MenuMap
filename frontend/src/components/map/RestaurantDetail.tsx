@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { errorMessage } from "../../api/http";
 import { placeOrder } from "../../api/orders";
 import { getRestaurant, OpeningHours, RestaurantDetail as Detail, RestaurantSummary } from "../../api/restaurants";
 import { useCart } from "../../lib/cart";
 import { formatDateTime, formatHours, priceLevel } from "../../lib/format";
 import { useSession } from "../../session/SessionContext";
+import { loginPath } from "../../utils/loginRedirect";
 import CartBar from "../menu/CartBar";
 import MenuList from "../menu/MenuList";
-import TestCustomerPicker from "../TestCustomerPicker";
 import { OpenStatus } from "./RestaurantList";
 
 type Props = {
@@ -23,13 +23,13 @@ const WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATUR
 /** One restaurant in the side panel: details, hours, and its menu with pickup ordering. */
 export default function RestaurantDetail({ restaurantId, onBack, onLoaded }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: sessionLoading } = useSession();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const cart = useCart();
+  const cart = useCart(`restaurant:${restaurantId}`);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [signInOpen, setSignInOpen] = useState(false);
 
   const onLoadedRef = useRef(onLoaded);
   onLoadedRef.current = onLoaded;
@@ -62,6 +62,12 @@ export default function RestaurantDetail({ restaurantId, onBack, onLoaded }: Pro
       setSubmitError(errorMessage(e));
       setSubmitting(false);
     }
+  };
+
+  // Keeps the cart while they log in; the login page brings them back to this menu to place the order
+  const logInFirst = () => {
+    cart.stash();
+    navigate(loginPath(location.pathname + location.search));
   };
 
   const r = detail?.restaurant;
@@ -146,21 +152,10 @@ export default function RestaurantDetail({ restaurantId, onBack, onLoaded }: Pro
         <CartBar
           cart={cart}
           actionLabel="Place pickup order"
-          note={user ? <>Pickup order for {user.name}</> : <>You'll be asked to sign in first.</>}
+          note={user ? <>Pickup order for {user.name}</> : <>You'll be asked to log in first.</>}
           submitting={submitting}
           error={submitError}
-          onSubmit={() => (user ? submit() : setSignInOpen(true))}
-        />
-      )}
-
-      {signInOpen && (
-        <TestCustomerPicker
-          reason="Sign in to order for pickup."
-          onClose={() => setSignInOpen(false)}
-          onSignedIn={() => {
-            setSignInOpen(false);
-            submit();
-          }}
+          onSubmit={user ? submit : logInFirst}
         />
       )}
     </div>

@@ -5,10 +5,10 @@ import { getMyOrders, getOrder, Order } from "../api/orders";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import OrderStatusBadge from "../components/orders/OrderStatusBadge";
-import TestCustomerPicker from "../components/TestCustomerPicker";
 import { formatDateTime, formatMoney } from "../lib/format";
 import { guestOrders } from "../lib/guestOrders";
 import { useSession } from "../session/SessionContext";
+import { loginPath } from "../utils/loginRedirect";
 
 /**
  * /orders — order history: the signed-in customer's orders from the server,
@@ -18,7 +18,6 @@ export default function OrderHistoryPage() {
   const { user, loading: sessionLoading } = useSession();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [signInOpen, setSignInOpen] = useState(false);
 
   const userId = user?.id;
   useEffect(() => {
@@ -68,7 +67,7 @@ export default function OrderHistoryPage() {
         {orders && orders.length === 0 && (
           <div className="bg-card border border-border rounded-2xl px-6 py-6 flex flex-col gap-3">
             <p className="m-0 text-[15px] text-muted">
-              {user ? "You haven't placed any orders yet." : "No orders yet. Sign in to see your account's orders."}
+              {user ? "You haven't placed any orders yet." : "No orders yet. Log in to see your account's orders."}
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -78,13 +77,12 @@ export default function OrderHistoryPage() {
                 Find a restaurant
               </Link>
               {!user && (
-                <button
-                  type="button"
-                  onClick={() => setSignInOpen(true)}
+                <Link
+                  to={loginPath("/orders")}
                   className="px-4 py-2.5 rounded-[10px] text-[14px] font-semibold border-[1.5px] border-border-strong hover:border-sage hover:text-sage transition-colors"
                 >
-                  Sign in
-                </button>
+                  Log in
+                </Link>
               )}
             </div>
           </div>
@@ -121,14 +119,6 @@ export default function OrderHistoryPage() {
         )}
       </main>
       <Footer />
-
-      {signInOpen && (
-        <TestCustomerPicker
-          reason="Sign in to see your order history."
-          onClose={() => setSignInOpen(false)}
-          onSignedIn={() => setSignInOpen(false)}
-        />
-      )}
     </div>
   );
 }

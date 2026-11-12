@@ -5,10 +5,10 @@ import { lookupTable, placeOrder, TableInfo } from "../api/orders";
 import { getRestaurant, RestaurantDetail } from "../api/restaurants";
 import CartBar from "../components/menu/CartBar";
 import MenuList from "../components/menu/MenuList";
-import TestCustomerPicker from "../components/TestCustomerPicker";
 import { useCart } from "../lib/cart";
 import { rememberGuestOrder } from "../lib/guestOrders";
 import { useSession } from "../session/SessionContext";
+import { loginPath } from "../utils/loginRedirect";
 
 /**
  * /table/:token — where a table's QR code leads. The code works as the
@@ -22,10 +22,9 @@ export default function TableOrderPage() {
   const [table, setTable] = useState<TableInfo | null>(null);
   const [detail, setDetail] = useState<RestaurantDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const cart = useCart();
+  const cart = useCart(`table:${token}`);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [signInOpen, setSignInOpen] = useState(false);
 
   // Waits for the session check and reloads after signing in, so a restriction on this customer shows up
   const userId = user?.id;
@@ -63,6 +62,12 @@ export default function TableOrderPage() {
     }
   };
 
+  // Keeps the cart while they log in; the login page brings them back to this table
+  const logIn = () => {
+    cart.stash();
+    navigate(loginPath(`/table/${token}`));
+  };
+
   const isOpen = detail?.restaurant.isOpen ?? false;
   const canOrder = !!detail && isOpen && !detail.restriction;
 
@@ -78,10 +83,10 @@ export default function TableOrderPage() {
           ) : (
             <button
               type="button"
-              onClick={() => setSignInOpen(true)}
+              onClick={logIn}
               className="text-[13px] font-semibold text-sage hover:text-sage-dark"
             >
-              Sign in to save this order
+              Log in to save this order
             </button>
           )}
         </div>
@@ -146,14 +151,6 @@ export default function TableOrderPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {signInOpen && (
-        <TestCustomerPicker
-          reason="Sign in to save this order to your account. You can also order as a guest."
-          onClose={() => setSignInOpen(false)}
-          onSignedIn={() => setSignInOpen(false)}
-        />
       )}
     </div>
   );

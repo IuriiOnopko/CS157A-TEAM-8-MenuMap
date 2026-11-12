@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MenuItem } from "../api/restaurants";
 
 export type CartLine = { item: MenuItem; quantity: number };
@@ -7,12 +7,50 @@ const MAX_QUANTITY = 99; // matches OrderServlet
 
 const sameItem = (a: MenuItem, b: MenuItem) => a.categoryId === b.categoryId && a.itemId === b.itemId;
 
+// A cart put aside while the customer goes to the login page (sessionStorage: this tab only)
+const STASH_KEY = "menumap.cart";
+type Stash = { key: string; lines: CartLine[] };
+
+function readStash(key: string): CartLine[] {
+  try {
+    const stash = JSON.parse(sessionStorage.getItem(STASH_KEY) ?? "null") as Stash | null;
+    return stash?.key === key ? stash.lines : [];
+  } catch {
+    return [];
+  }
+}
+
+function clearStash(key: string) {
+  try {
+    if (readStash(key).length > 0) sessionStorage.removeItem(STASH_KEY);
+  } catch {
+    // storage blocked (private mode etc.)
+  }
+}
+
 /**
  * The items picked from one restaurant's menu. Prices here are only for
  * display; the server prices the order again when it's placed.
+ *
+ * `stashKey` names this cart (e.g. one per restaurant) so stash() can keep it
+ * while the customer logs in, and it comes back when they return to the page.
  */
-export function useCart() {
-  const [lines, setLines] = useState<CartLine[]>([]);
+export function useCart(stashKey: string) {
+  const [lines, setLines] = useState<CartLine[]>(() => readStash(stashKey));
+
+  // A stashed cart is picked up once, then forgotten
+  useEffect(() => {
+    clearStash(stashKey);
+  }, [stashKey]);
+
+  const stash = () => {
+    const stash: Stash = { key: stashKey, lines };
+    try {
+      sessionStorage.setItem(STASH_KEY, JSON.stringify(stash));
+    } catch {
+      // storage blocked: the customer just picks the items again
+    }
+  };
 
   const quantityOf = (item: MenuItem) => lines.find((l) => sameItem(l.item, item))?.quantity ?? 0;
 
@@ -39,7 +77,7 @@ export function useCart() {
     quantity: l.quantity,
   }));
 
-  return { lines, quantityOf, add, remove, count, subtotal, orderItems };
+  return { lines, quantityOf, add, remove, count, subtotal, orderItems, stash };
 }
 
 export type Cart = ReturnType<typeof useCart>;

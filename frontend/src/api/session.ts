@@ -19,14 +19,3 @@ export async function getSession(): Promise<SessionUser | null> {
 export function endSession(): Promise<void> {
   return apiFetch<void>("/session", { method: "DELETE" });
 }
-
-// TEMPORARY: password-less test sign-in (TestCustomerServlet). Remove with
-// TestCustomerPicker.tsx once the team's real login exists.
-
-export function getTestCustomers(): Promise<SessionUser[]> {
-  return apiFetch<SessionUser[]>("/test-customers");
-}
-
-export function signInAsTestCustomer(userId: number): Promise<SessionUser> {
-  return apiFetch<SessionUser>("/test-customers", { method: "POST", body: JSON.stringify({ userId }) });
-}
