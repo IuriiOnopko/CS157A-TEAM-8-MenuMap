@@ -76,6 +76,19 @@ export default function BusinessDashboard() {
 
   const current = TABS.find((t) => t.key === tab)!;
 
+  const today = new Date().toDateString();
+
+  const ordersToday = orders.filter(
+  (order) => new Date(order.submittedAt).toDateString() === today).length;
+
+  const openOrders = orders.filter((order) =>
+    order.status === "SUBMITTED" ||
+    order.status === "PREPARING" ||
+    order.status === "READY"
+  ).length;
+
+  const recentOrders = orders.slice(0, 5);
+
   return (
     <div className="min-h-screen flex flex-col bg-cream font-body text-ink">
       {/* Top bar */}
@@ -136,16 +149,50 @@ export default function BusinessDashboard() {
             <>
               <p className="mt-1 text-[15px] text-muted">Welcome back. Here's how your restaurant is doing today.</p>
               <div className="mt-7 grid gap-4 sm:grid-cols-3">
-                <StatTile label="Orders today" />
-                <StatTile label="Open orders" />
-                <StatTile label="Menu items" />
+          
+                <StatTile label="Orders today" value={ordersToday} />
+                <StatTile label="Open orders" value={openOrders} />
+                <StatTile label="Total orders" value={orders.length} />
+                
               </div>
               <SectionCard title="Recent orders">
-                <EmptyState
-                  title="No orders yet"
-                  body="New dine-in and pickup orders will show up here as customers place them."
-                />
-              </SectionCard>
+  {ordersLoading ? (
+    <p className="text-sm text-muted">Loading orders...</p>
+  ) : ordersError ? (
+    <p className="text-sm text-red-600">{ordersError}</p>
+  ) : recentOrders.length === 0 ? (
+    <EmptyState
+      title="No orders yet"
+      body="New dine-in and pickup orders will show up here as customers place them."
+    />
+  ) : (
+    <div className="space-y-3">
+      {recentOrders.map((order) => (
+        <div
+          key={order.id}
+          className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0"
+        >
+          <div>
+            <p className="font-semibold text-[15px]">
+              Order #{order.id}
+            </p>
+            <p className="text-sm text-muted">
+              {order.method === "DINE_IN" ? "Dine-in" : "Pickup"}
+              {order.tableCode ? ` · Table ${order.tableCode}` : ""}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="font-semibold">
+              ${order.total.toFixed(2)}
+            </p>
+            <p className="text-sm text-muted">{order.status}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</SectionCard>
             </>
           )}
 
@@ -165,8 +212,62 @@ export default function BusinessDashboard() {
                 ))}
               </div>
               <SectionCard title="Orders">
-                <EmptyState title="No orders yet" body="When customers order, you'll move them from Submitted to Preparing, Ready and Completed here." />
-              </SectionCard>
+  {ordersLoading ? (
+    <p className="text-sm text-muted">Loading orders...</p>
+  ) : ordersError ? (
+    <p className="text-sm text-red-600">{ordersError}</p>
+  ) : orders.length === 0 ? (
+    <EmptyState
+      title="No orders yet"
+      body="When customers order, they'll appear here."
+    />
+  ) : (
+    <div className="space-y-4">
+      {orders.map((order) => (
+        <div
+          key={order.id}
+          className="border border-border rounded-xl p-4"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-[16px]">
+                Order #{order.id}
+              </p>
+
+              <p className="mt-1 text-sm text-muted">
+                {order.method === "DINE_IN" ? "Dine-in" : "Pickup"}
+                {order.tableCode ? ` · Table ${order.tableCode}` : ""}
+              </p>
+
+              <p className="mt-1 text-sm text-muted">
+                {new Date(order.submittedAt).toLocaleString()}
+              </p>
+            </div>
+
+            <div className="text-right">
+              <p className="font-semibold">
+                ${order.total.toFixed(2)}
+              </p>
+              <p className="mt-1 text-sm font-semibold">
+                {order.status}
+              </p>
+            </div>
+          </div>
+
+          {order.items.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-border">
+              {order.items.map((item) => (
+                <p key={item.lineNum} className="text-sm text-muted">
+                  {item.quantity} × {item.name}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</SectionCard>
             </>
           )}
 
@@ -226,11 +327,15 @@ export default function BusinessDashboard() {
   );
 }
 
-function StatTile({ label }: { label: string }) {
+function StatTile({ label, value }: { label: string; value: number }) {
   return (
     <div className="bg-card border border-border rounded-2xl px-5 py-4">
-      <p className="text-[12.5px] font-bold uppercase tracking-wide text-muted-2">{label}</p>
-      <p className="mt-2 font-display text-[32px] font-semibold leading-none text-ink/40">—</p>
+      <p className="text-[12.5px] font-bold uppercase tracking-wide text-muted-2">
+        {label}
+      </p>
+      <p className="mt-2 font-display text-[32px] font-semibold leading-none">
+        {value}
+      </p>
     </div>
   );
 }
